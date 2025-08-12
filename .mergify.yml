@@ -19,15 +19,15 @@ pull_request_rules:
   - base=main
   - "body~=(?i)^/lgtm"
   - or:
-    - "#review-requested={{comment.user.login}}" # Requested reviewers
-    - "author=@{{comment.user.login}}" # PR author
-    - "assignee={{comment.user.login}}" # Assignee
+    - "#review-requested>0" # Has requested reviewers
+    - "author={{author}}" # PR author
+    - "#assignees>0" # Has assignees
   actions:
     label:
       add:
       - "lgtm"
     comment:
-      message: "✅ LGTM acknowledged by @{{comment.user.login}}"
+      message: "✅ LGTM acknowledged by {{author}}"
 
 # Handle /approve command (only from requested reviewers - GitHub auto-assigns from CODEOWNERS)
 - name: add approved label on /approve comment from authorized users
@@ -35,15 +35,15 @@ pull_request_rules:
   - base=main
   - "body~=(?i)^/approve"
   - or:
-    - "#review-requested={{comment.user.login}}" # Requested reviewers
-    - "author=@{{comment.user.login}}" # PR author
-    - "assignee={{comment.user.login}}" # Assignee
+    - "#review-requested>0" # Has requested reviewers
+    - "author={{author}}" # PR author
+    - "#assignees>0" # Has assignees
   actions:
     label:
       add:
       - "approved"
     comment:
-      message: "✅ Approved by @{{comment.user.login}}"
+      message: "✅ Approved by {{author}}"
 
 # Remove lgtm/approved labels on /cancel command
 - name: remove approval labels on /cancel comment
@@ -59,7 +59,7 @@ pull_request_rules:
       - "lgtm"
       - "approved"
     comment:
-      message: "❌ Previous approvals cancelled by @{{comment.user.login}}"
+      message: "❌ Previous approvals cancelled by {{author}}"
 
 # Handle /retest command
 - name: rerun CI on /retest comment
@@ -69,14 +69,13 @@ pull_request_rules:
   actions:
     comment:
       message: "🔄 Retriggering CI tests..."
-    # This will trigger GitHub Actions workflows that listen for issue_comment events
 
-    # Handle /rebase command
+# Handle /rebase command
 - name: rebase on /rebase comment
   conditions:
   - base=main
   - "body~=(?i)^/rebase"
-  - "#conflicts=0"
+  - "conflicts=0"
   actions:
     rebase:
 
@@ -88,7 +87,7 @@ pull_request_rules:
   actions:
     assign:
       add_users:
-      - "{{ comment.body | match('^/assign @(.+)') | first }}"
+      - "{{ author }}"
 
 # Handle /hold command
 - name: add hold label on /hold comment
@@ -171,7 +170,7 @@ pull_request_rules:
   - "-draft"
   - "-label=do-not-merge/hold"
   - "-title~=(?i)(wip|work in progress|\\[wip\\]|\\(wip\\))"
-  - "#conflicts=0"
+  - "conflicts=0"
   actions:
     rebase:
 
@@ -233,4 +232,4 @@ pull_request_rules:
   actions:
     backport:
       branches:
-      - "{{ label | select('match', 'backport/(.*)') | map('regex_replace', 'backport/(.*)', '\\1') | list }}"
+      - "main"
