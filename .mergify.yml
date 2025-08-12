@@ -1,0 +1,236 @@
+pull_request_rules:
+# Add comment when PR is opened (CODEOWNERS auto-assignment is handled by GitHub)
+- name: welcome new PR with reviewer info
+  conditions:
+  - base=main
+  - "-draft"
+  - "#commits=1" # First commit (new PR)
+  actions:
+    comment:
+      message: |
+        👋 Thanks for your contribution! 
+
+        Reviewers have been automatically assigned based on CODEOWNERS.
+        Use `/lgtm` and `/approve` commands once review is complete.
+
+# Handle /lgtm command (only from requested reviewers - GitHub auto-assigns from CODEOWNERS)
+- name: add lgtm label on /lgtm comment from authorized users
+  conditions:
+  - base=main
+  - "body~=(?i)^/lgtm"
+  - or:
+    - "#review-requested={{comment.user.login}}" # Requested reviewers
+    - "author=@{{comment.user.login}}" # PR author
+    - "assignee={{comment.user.login}}" # Assignee
+  actions:
+    label:
+      add:
+      - "lgtm"
+    comment:
+      message: "✅ LGTM acknowledged by @{{comment.user.login}}"
+
+# Handle /approve command (only from requested reviewers - GitHub auto-assigns from CODEOWNERS)
+- name: add approved label on /approve comment from authorized users
+  conditions:
+  - base=main
+  - "body~=(?i)^/approve"
+  - or:
+    - "#review-requested={{comment.user.login}}" # Requested reviewers
+    - "author=@{{comment.user.login}}" # PR author
+    - "assignee={{comment.user.login}}" # Assignee
+  actions:
+    label:
+      add:
+      - "approved"
+    comment:
+      message: "✅ Approved by @{{comment.user.login}}"
+
+# Remove lgtm/approved labels on /cancel command
+- name: remove approval labels on /cancel comment
+  conditions:
+  - base=main
+  - "body~=(?i)^/cancel"
+  - or:
+    - "label=lgtm"
+    - "label=approved"
+  actions:
+    label:
+      remove:
+      - "lgtm"
+      - "approved"
+    comment:
+      message: "❌ Previous approvals cancelled by @{{comment.user.login}}"
+
+# Handle /retest command
+- name: rerun CI on /retest comment
+  conditions:
+  - base=main
+  - "body~=(?i)^/retest"
+  actions:
+    comment:
+      message: "🔄 Retriggering CI tests..."
+    # This will trigger GitHub Actions workflows that listen for issue_comment events
+
+    # Handle /rebase command
+- name: rebase on /rebase comment
+  conditions:
+  - base=main
+  - "body~=(?i)^/rebase"
+  - "#conflicts=0"
+  actions:
+    rebase:
+
+      # Handle /assign command
+- name: assign user on /assign comment
+  conditions:
+  - base=main
+  - "body~=(?i)^/assign @(.+)"
+  actions:
+    assign:
+      add_users:
+      - "{{ comment.body | match('^/assign @(.+)') | first }}"
+
+# Handle /hold command
+- name: add hold label on /hold comment
+  conditions:
+  - base=main
+  - "body~=(?i)^/hold"
+  actions:
+    label:
+      add:
+      - "do-not-merge/hold"
+    comment:
+      message: "🛑 PR is on hold. Use `/unhold` to remove."
+
+# Handle /unhold command
+- name: remove hold label on /unhold comment
+  conditions:
+  - base=main
+  - "body~=(?i)^/unhold"
+  - "label=do-not-merge/hold"
+  actions:
+    label:
+      remove:
+      - "do-not-merge/hold"
+    comment:
+      message: "✅ Hold removed. PR can now be merged if conditions are met."
+
+# Prevent merge for WIP PRs
+- name: prevent merge for WIP PRs
+  conditions:
+  - base=main
+  - "title~=(?i)(wip|work in progress|\\[wip\\]|\\(wip\\))"
+  actions:
+    label:
+      add:
+      - "do-not-merge/work-in-progress"
+
+# Remove WIP label when title changes
+- name: remove WIP label when title no longer contains WIP
+  conditions:
+  - base=main
+  - "label=do-not-merge/work-in-progress"
+  - "-title~=(?i)(wip|work in progress|\\[wip\\]|\\(wip\\))"
+  actions:
+    label:
+      remove:
+      - "do-not-merge/work-in-progress"
+
+# Auto-merge when conditions are met (requires both /lgtm and /approve from reviewers)
+- name: automatic merge when approved and tests pass
+  conditions:
+  - base=main
+  - "label=lgtm"
+  - "label=approved"
+  - "check-success~=^(ci|build|test|lint)" # Match common CI check patterns
+  - "-label~=do-not-merge"
+  - "-draft"
+  - "-title~=(?i)(wip|work in progress|\\[wip\\]|\\(wip\\))"
+  - "#approved-reviews-by>=1"
+  - "#changes-requested-reviews-by=0"
+  - "#commits-behind=0" # Ensure PR is up to date
+  actions:
+    merge:
+      method: squash
+      commit_message_template: |
+        {{ title }} (#{{ number }})
+
+        {{ body }}
+    comment:
+      message: "🎉 Automatically merged after /lgtm and /approve from reviewers and successful tests!"
+    label:
+      remove:
+      - "lgtm"
+      - "approved"
+
+# Auto-rebase to keep PR up to date
+- name: automatic rebase when behind main
+  conditions:
+  - base=main
+  - "#commits-behind>0"
+  - "-draft"
+  - "-label=do-not-merge/hold"
+  - "-title~=(?i)(wip|work in progress|\\[wip\\]|\\(wip\\))"
+  - "#conflicts=0"
+  actions:
+    rebase:
+
+      # Auto-label based on file changes
+- name: label documentation changes
+  conditions:
+  - base=main
+  - "files~=\\.(md|rst|txt)$"
+  actions:
+    label:
+      add:
+      - "documentation"
+
+- name: label code changes
+  conditions:
+  - base=main
+  - "files~=\\.(go|py|js|ts|java|cpp|c|rs)$"
+  actions:
+    label:
+      add:
+      - "code"
+
+- name: label configuration changes
+  conditions:
+  - base=main
+  - "files~=\\.(yml|yaml|json|toml|cfg|conf)$"
+  actions:
+    label:
+      add:
+      - "configuration"
+
+# Status checks
+- name: require approval for large changes
+  conditions:
+  - base=main
+  - "#files>=10"
+  actions:
+    label:
+      add:
+      - "size/large"
+    comment:
+      message: "📊 This is a large PR with {{ files | length }} files changed. Please ensure thorough review."
+
+- name: label small changes
+  conditions:
+  - base=main
+  - "#files<=3"
+  actions:
+    label:
+      add:
+      - "size/small"
+
+# Backport automation (optional)
+- name: backport on backport label
+  conditions:
+  - base=main
+  - "label~=backport/"
+  - "merged"
+  actions:
+    backport:
+      branches:
+      - "{{ label | select('match', 'backport/(.*)') | map('regex_replace', 'backport/(.*)', '\\1') | list }}"
