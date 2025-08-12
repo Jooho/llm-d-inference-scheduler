@@ -75,7 +75,7 @@ pull_request_rules:
   conditions:
   - base=main
   - "body~=(?i)^/rebase"
-  - "conflicts=0"
+  - "conflicts=false"
   actions:
     rebase:
 
@@ -170,7 +170,7 @@ pull_request_rules:
   - "-draft"
   - "-label=do-not-merge/hold"
   - "-title~=(?i)(wip|work in progress|\\[wip\\]|\\(wip\\))"
-  - "conflicts=0"
+  - "conflicts=false"
   actions:
     rebase:
 
