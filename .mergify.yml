@@ -27,7 +27,7 @@ pull_request_rules:
         add:
           - "lgtm"
       comment:
-        message: "✅ LGTM acknowledged by {{author}}"
+        message: "✅ LGTM acknowledged by {{ author }}"
 
   # Handle /approve command (only from requested reviewers - GitHub auto-assigns from CODEOWNERS)
   - name: add approved label on /approve comment from authorized users
@@ -43,7 +43,7 @@ pull_request_rules:
         add:
           - "approved"
       comment:
-        message: "✅ Approved by {{author}}"
+        message: "✅ Approved by {{ author }}"
 
   # Remove lgtm/approved labels on /cancel command
   - name: remove approval labels on /cancel comment
@@ -59,7 +59,7 @@ pull_request_rules:
           - "lgtm"
           - "approved"
       comment:
-        message: "❌ Previous approvals cancelled by {{author}}"
+        message: "❌ Previous approvals cancelled by {{ author }}"
 
   # Handle /retest command
   - name: rerun CI on /retest comment
@@ -79,17 +79,17 @@ pull_request_rules:
     actions:
       rebase:
 
-  # Handle /assign command - assign comment author to PR
-  - name: assign comment author on /assign comment
+  # Handle /assign command - assign PR author (simplified)
+  - name: assign PR author on /assign command
     conditions:
       - base=main
       - "body~=(?i)^/assign"
     actions:
       assign:
         add_users:
-          - "{{ comment.user.login }}"
+          - "{{ author }}"
       comment:
-        message: "✅ Assigned @{{ comment.user.login }} to this PR"
+        message: "✅ Assigned @{{ author }} to this PR"
 
   # Handle /hold command
   - name: add hold label on /hold comment
