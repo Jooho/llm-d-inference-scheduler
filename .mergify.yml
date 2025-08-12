@@ -79,15 +79,17 @@ pull_request_rules:
     actions:
       rebase:
 
-  # Handle /assign command
-  - name: assign user on /assign comment
+  # Handle /assign command - assign comment author to PR
+  - name: assign comment author on /assign comment
     conditions:
       - base=main
-      - "body~=(?i)^/assign @(.+)"
+      - "body~=(?i)^/assign"
     actions:
       assign:
         add_users:
-          - "{{ comment.body | match('^/assign @(.+)') | first }}"
+          - "{{ comment.user.login }}"
+      comment:
+        message: "✅ Assigned @{{ comment.user.login }} to this PR"
 
   # Handle /hold command
   - name: add hold label on /hold comment
@@ -223,13 +225,12 @@ pull_request_rules:
         add:
           - "size/small"
 
-  # Backport automation (optional)
-  - name: backport on backport label
+  # Backport automation (optional) - simplified version
+  - name: comment on backport label
     conditions:
       - base=main
       - "label~=backport/"
       - "merged"
     actions:
-      backport:
-        branches:
-          - "{{ label | select('match', 'backport/(.*)') | map('regex_replace', 'backport/(.*)', '\\1') | list }}"
+      comment:
+        message: "🔄 Backport requested. Please create backport PR manually to the target branch."
